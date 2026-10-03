@@ -81,6 +81,13 @@ job "cryptpad" {
           source = "cryptpad-customize"
           target = "/cryptpad/customize"
         }
+        # Client-side overrides, served in place of customize.dist/application_config.js
+        mount {
+          type     = "bind"
+          source   = "local/application_config.js"
+          target   = "/cryptpad/customize/application_config.js"
+          readonly = true
+        }
       }
 
       template {
@@ -100,6 +107,32 @@ module.exports = {
     adminKeys: [],
     installMethod: 'docker',
 };
+EOT
+      }
+
+      template {
+        destination = "local/application_config.js"
+        change_mode = "restart"
+        data        = <<EOT
+(() => {
+const factory = (AppConfig) => {
+    // Guests can't create documents (forms included) but can still
+    // open and answer the forms shared with them. Image answers are
+    // uploaded without creating a document, so they keep working.
+    AppConfig.disableAnonymousPadCreation = true;
+    // Guests can't keep documents in a guest CryptDrive
+    AppConfig.disableAnonymousStore = true;
+    return AppConfig;
+};
+
+if (typeof(module) !== 'undefined' && module.exports) {
+    module.exports = factory(
+        require('../www/common/application_config_internal.js')
+    );
+} else if ((typeof(define) !== 'undefined' && define !== null) && (define.amd !== null)) {
+    define(['/common/application_config_internal.js'], factory);
+}
+})();
 EOT
       }
 
