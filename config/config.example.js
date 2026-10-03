@@ -238,6 +238,8 @@ module.exports = {
 
     /*  Guests (users without an account, e.g. people answering a form)
      *  can upload files up to this size. Defaults to 5MB.
+     *  It can't be higher than maxUploadSize: set both to the same value
+     *  to give guests the same limit as registered users.
      */
     //maxGuestUploadSize: 5 * 1024 * 1024,
 
