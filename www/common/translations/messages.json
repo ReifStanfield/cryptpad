@@ -1587,6 +1587,7 @@
     "form_image_upload": "Upload an image",
     "form_image_remove": "Remove image",
     "form_image_typeError": "Only image files can be uploaded here",
+    "form_image_tooLarge": "This image is too large. The maximum size is {0}",
     "settings_mfaTitle": "Two-Factor Authentication (2FA)",
     "settings_mfaHint": "Protect your account with an additional verification code provided by an authenticator app of your choice",
     "done": "Done",

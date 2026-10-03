@@ -2307,6 +2307,12 @@ define([
                     if (!/^image\//.test(file.type)) {
                         return void UI.warn(Messages.form_image_typeError);
                     }
+                    var guestMax = ApiConfig.maxGuestUploadSize;
+                    if (!common.isLoggedIn() && typeof(guestMax) === "number" && file.size > guestMax) {
+                        return void UI.warn(Messages._getKey('form_image_tooLarge', [
+                            Messages._getKey('formattedMB', [Util.bytesToMegabytes(guestMax)])
+                        ]));
+                    }
                     $(status).text(Messages.upload_pending);
                     uploadImageAnswer(file, onUploaded);
                 };

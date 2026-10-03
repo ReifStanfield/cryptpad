@@ -236,6 +236,11 @@ module.exports = {
      */
     //premiumUploadSize: 100 * 1024 * 1024,
 
+    /*  Guests (users without an account, e.g. people answering a form)
+     *  can upload files up to this size. Defaults to 5MB.
+     */
+    //maxGuestUploadSize: 5 * 1024 * 1024,
+
     /* =====================
      *   DATABASE VOLUMES
      * ===================== */
