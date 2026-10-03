@@ -56,6 +56,7 @@ define([
         "form-conditional": "cp-form-conditional",
         "form-poll-maybe": "cp-form-poll-maybe",
         "form-poll-switch": "arrow-right-left",
+        "form-image": "image",
         // Whiteboard
         "whiteboard": "cp-file-whiteboard",
         // Diagram

@@ -116,14 +116,20 @@ define([
             });
         };
 
+        let guestKeys;
+        const getKeys = cb => {
+            if (guestKeys) { return void cb(guestKeys); }
+            common.getAccessKeys(arr => {
+                cb(arr.find(obj => {
+                    return (!obj.id && !teamId) || +obj.id === +teamId;
+                }));
+            });
+        };
         const startUpload = () => {
             if (USE_WS) {
                 return void next(again);
             }
-            common.getAccessKeys(arr => {
-                const myKeys = arr.find(obj => {
-                    return (!obj.id && !teamId) || +obj.id === +teamId;
-                });
+            getKeys(myKeys => {
                 if (!myKeys) { return void onError('NO_KEYS'); }
                 keys = {
                     edPublic: myKeys.edPublic,
@@ -141,25 +147,35 @@ define([
             });
         };
 
-        common.uploadStatus(teamId, id, estimate, function (e, pending) {
-            if (e) {
-                console.error(e);
-                onError(e);
-                return;
-            }
+        const checkStatus = () => {
+            common.uploadStatus(teamId, id, estimate, function (e, pending) {
+                if (e) {
+                    console.error(e);
+                    onError(e);
+                    return;
+                }
 
-            if (pending) {
-                return void onPending(function () {
-                    // if the user wants to cancel the pending upload to execute that one
-                    common.uploadCancel(teamId, id, estimate, function (e) {
-                        if (e) {
-                            return void console.error(e);
-                        }
-                        startUpload();
+                if (pending) {
+                    return void onPending(function () {
+                        // if the user wants to cancel the pending upload to execute that one
+                        common.uploadCancel(teamId, id, estimate, function (e) {
+                            if (e) {
+                                return void console.error(e);
+                            }
+                            startUpload();
+                        });
                     });
-                });
-            }
-            startUpload();
+                }
+                startUpload();
+            });
+        };
+
+        // Guests upload with temporary keys
+        if (teamId || !data.guest) { return void checkStatus(); }
+        common.getGuestUploadKeys((err, keys) => {
+            if (err || !keys) { return void onError(err || 'NO_KEYS'); }
+            guestKeys = keys;
+            checkStatus();
         });
     };
 
@@ -213,6 +229,7 @@ define([
                 key: key,
                 id: id,
                 owned: owned,
+                guest: file.guest,
                 onError: onError,
                 onPending: onPending,
                 updateProgress: updateProgress,

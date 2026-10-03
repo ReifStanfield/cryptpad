@@ -24,6 +24,7 @@ const factory = AStore => {
             UPLOAD_COMPLETE: Store.uploadComplete,
             UPLOAD_STATUS: Store.uploadStatus,
             UPLOAD_CANCEL: Store.uploadCancel,
+            GET_GUEST_UPLOAD_KEYS: Store.getGuestUploadKeys,
             // ANON RPC
             ANON_RPC_MESSAGE: Store.anonRpcMsg,
             GET_FILE_SIZE: Store.getFileSize,

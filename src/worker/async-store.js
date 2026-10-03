@@ -367,8 +367,39 @@ const factory = (Sortify, UserObject, ProxyManager,
             });
         };
 
+        // Guests don't have an authenticated RPC. If they've requested
+        // temporary upload keys (see Store.getGuestUploadKeys), use them for
+        // the upload commands only.
+        var getUploadStore = function (teamId) {
+            var s = getStore(teamId);
+            if (s && !s.rpc && !teamId && !store.loggedIn && store.guestUploadRpc) {
+                return { rpc: store.guestUploadRpc };
+            }
+            return s;
+        };
+        Store.getGuestUploadKeys = function (clientId, data, cb) {
+            if (store.loggedIn) { return void cb({ error: 'LOGGED_IN' }); }
+            // Integration mode already has temporary RPC keys
+            if (store.rpc && store.tempKeys) { return void cb(store.tempKeys); }
+            if (store.guestUploadKeys && store.guestUploadRpc) {
+                return void cb(store.guestUploadKeys);
+            }
+            if (!store.network) { return void cb({ error: 'OFFLINE' }); }
+            var kp = Crypto.Nacl.sign.keyPair();
+            var keys = {
+                edPublic: Util.encodeBase64(kp.publicKey),
+                edPrivate: Util.encodeBase64(kp.secretKey)
+            };
+            Pinpad.create(store.network, keys, function (e, call) {
+                if (e) { return void cb({ error: e }); }
+                store.guestUploadKeys = keys;
+                store.guestUploadRpc = call;
+                cb(keys);
+            });
+        };
+
         Store.uploadComplete = function (clientId, data, cb) {
-            var s = getStore(data.teamId);
+            var s = getUploadStore(data.teamId);
             if (!s) { return void cb({ error: 'ENOTFOUND' }); }
             if (!s.rpc) { return void cb({error: 'RPC_NOT_READY'}); }
             if (data.owned) {
@@ -387,7 +418,7 @@ const factory = (Sortify, UserObject, ProxyManager,
         };
 
         Store.uploadStatus = function (clientId, data, cb) {
-            var s = getStore(data.teamId);
+            var s = getUploadStore(data.teamId);
             if (!s) { return void cb({ error: 'ENOTFOUND' }); }
             if (!s.rpc) { return void cb({error: 'RPC_NOT_READY'}); }
             s.rpc.uploadStatus({
@@ -400,7 +431,7 @@ const factory = (Sortify, UserObject, ProxyManager,
         };
 
         Store.uploadCancel = function (clientId, data, cb) {
-            var s = getStore(data.teamId);
+            var s = getUploadStore(data.teamId);
             if (!s) { return void cb({ error: 'ENOTFOUND' }); }
             if (!s.rpc) { return void cb({error: 'RPC_NOT_READY'}); }
             s.rpc.uploadCancel({
@@ -413,7 +444,7 @@ const factory = (Sortify, UserObject, ProxyManager,
         };
 
         Store.uploadChunk = function (clientId, data, cb) {
-            var s = getStore(data.teamId);
+            var s = getUploadStore(data.teamId);
             if (!s) { return void cb({ error: 'ENOTFOUND' }); }
             if (!s.rpc) { return void cb({error: 'RPC_NOT_READY'}); }
             s.rpc.send.unauthenticated('UPLOAD', {

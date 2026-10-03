@@ -49,6 +49,24 @@ define([
             meta.form_auditorHash = formData.form_auditorHash;
         };
         var addRpc = function (sframeChan, Cryptpad) {
+            // Pin the images uploaded as answers (only adds, never unpins)
+            sframeChan.on('EV_FORM_PIN_IMAGES', function (list) {
+                if (!Array.isArray(list) || !list.length) { return; }
+                Cryptpad.getPadAttribute('formImages', function (err, res) {
+                    if (err) { return; }
+                    if (!Array.isArray(res)) { res = []; }
+                    var toPin = list.filter(function (id) {
+                        return typeof(id) === "string" && res.indexOf(id) === -1;
+                    });
+                    if (!toPin.length) { return; }
+                    Cryptpad.pinPads(toPin, function (err) {
+                        if (err) { return void console.error(err); }
+                        Cryptpad.setPadAttribute('formImages', res.concat(toPin), function (err) {
+                            if (err) { console.error(err); }
+                        });
+                    });
+                });
+            });
             sframeChan.on('EV_FORM_PIN', function (data) {
                 channels.answersChannel = data.channel;
                 Cryptpad.otherPadAttrs = {

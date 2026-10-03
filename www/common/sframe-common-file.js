@@ -488,6 +488,7 @@ define([
                         password: password,
                         owned: owned,
                         forceSave: forceSave,
+                        guest: config.guest,
                         dropEvent: e
                     });
                 }
@@ -498,11 +499,6 @@ define([
                 }
             };
             var getName = function () {
-                // If "noStore", it means we don't want to store this file in our drive (avatar)
-                // In this case, we don't want a password or a filename, and we own the file
-                if (config.noStore) { return void finish(); }
-
-                // Otherwise, ask for password, name and ownership
                 // if default options were passed, upload file immediately
                 if (defaultOptions && typeof defaultOptions === "object") {
                     name = defaultOptions.name || file.name;
@@ -511,6 +507,12 @@ define([
                     forceSave = !!defaultOptions.forceSave;
                     return void finish();
                 }
+
+                // If "noStore", it means we don't want to store this file in our drive (avatar)
+                // In this case, we don't want a password or a filename, and we own the file
+                if (config.noStore) { return void finish(); }
+
+                // Otherwise, ask for password, name and ownership
                 // if no default options were passed, ask the user
                 else {
                     fileUploadModal(file.name, function (obj) {

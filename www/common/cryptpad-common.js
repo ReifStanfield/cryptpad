@@ -649,6 +649,15 @@ define([
         });
     };
 
+    // Temporary signing keys allowing guests to upload files
+    common.getGuestUploadKeys = function (cb) {
+        if (LocalStore.isLoggedIn() && !common.neverDrive) { return void cb('LOGGED_IN'); }
+        postMessage("GET_GUEST_UPLOAD_KEYS", null, function (obj) {
+            if (!obj || obj.error) { return void cb(obj && obj.error || 'ERROR'); }
+            cb(null, obj);
+        });
+    };
+
     common.uploadChunk = function (teamId, id, data, cb) {
         postMessage("UPLOAD_CHUNK", {teamId, id, chunk: data}, function (obj) {
             if (obj && obj.error) { return void cb(obj.error); }

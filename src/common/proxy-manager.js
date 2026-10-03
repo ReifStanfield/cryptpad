@@ -1355,6 +1355,10 @@ const factory = (UserObject, Util, Hash,
                     if (data.ooImages && Array.isArray(data.ooImages)) {
                         data.ooImages.forEach(id => result.add(id));
                     }
+                    // Pin form image answers
+                    if (data.formImages && Array.isArray(data.formImages)) {
+                        data.formImages.forEach(id => result.add(id));
+                    }
                     // Pin the pad
                     result.add(data.channel);
                 };

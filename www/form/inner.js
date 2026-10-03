@@ -970,6 +970,59 @@ define([
         }, content));
     };
 
+    var IMAGE_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp';
+    var isImageAnswer = function (answer) {
+        return Util.isObject(answer) && typeof(answer.src) === "string" &&
+                typeof(answer.key) === "string";
+    };
+    var getImageAnswerTag = function (answer) {
+        var mt = MT.getMediaTag(APP.common, {
+            src: answer.src,
+            key: answer.key
+        });
+        MT.MediaTag(mt);
+        return h('div.cp-form-image-answer', {
+            title: answer.name || ''
+        }, mt);
+    };
+
+    // A single file manager is shared by all the image questions
+    var uploadImageAnswer = function (file, cb) {
+        var guest = !APP.common.isLoggedIn();
+        if (!APP.imageFM) {
+            APP.imageUploads = [];
+            APP.imageFM = APP.common.createFileManager({
+                body: $('body'),
+                // Guests don't have a drive and upload with temporary keys
+                noStore: guest,
+                guest: guest,
+                onUploaded: function (ev, data) {
+                    var idx = APP.imageUploads.indexOf(ev);
+                    if (idx === -1) { return; }
+                    APP.imageUploads.splice(idx, 1);
+                    ev.cb(undefined, data);
+                },
+                onError: function (err) {
+                    // The file manager doesn't tell us which upload failed:
+                    // abort all the pending ones
+                    var pending = APP.imageUploads;
+                    APP.imageUploads = [];
+                    pending.forEach(function (ev) { ev.cb(err || 'ERROR'); });
+                }
+            });
+        }
+        var ev = { cb: cb };
+        APP.imageUploads.push(ev);
+        // Unowned so that the file's metadata can't reveal who answered.
+        // Registered users store it in their drive so that it stays pinned.
+        // Guest uploads are pinned by the form owners (see pinImageAnswers).
+        APP.imageFM.handleFile(file, ev, {
+            name: file.name,
+            owned: false,
+            forceSave: !guest
+        });
+    };
+
     var getEmpty = function (empty) {
         if (!empty) { return; }
         var msg = UI.setHTML(h('span.cp-form-results-empty-text'), Messages._getKey('form_notAnswered', [empty]));
@@ -2191,6 +2244,130 @@ define([
             },
             icon: Icons.get('calendar', {class: 'cp-calendar-active'})
         },
+        image: {
+            defaultOpts: {},
+            get: function (opts, a, n, evOnChange) {
+                var common = APP.common;
+                var value;
+                var editable = true;
+
+                var preview = h('div.cp-form-type-image-preview');
+                var $preview = $(preview);
+                var input = h('input', {
+                    type: 'file',
+                    accept: IMAGE_ACCEPT,
+                    style: 'display: none;'
+                });
+                var $input = $(input);
+                var uploadBtn = h('button.btn.btn-secondary.cp-form-type-image-upload', [
+                    Icons.get('upload-avatar'),
+                    h('span', Messages.form_image_upload)
+                ]);
+                var removeBtn = h('button.btn.btn-danger-alt.cp-form-type-image-remove', [
+                    Icons.get('trash-full'),
+                    h('span', Messages.form_image_remove)
+                ]);
+                var $upload = $(uploadBtn);
+                var $remove = $(removeBtn);
+                var status = h('span.cp-form-type-image-status');
+
+                var tag = h('div.cp-form-type-image', [
+                    preview,
+                    h('div.cp-form-type-image-buttons', [
+                        input, uploadBtn, removeBtn, status
+                    ])
+                ]);
+
+                var render = function () {
+                    $preview.empty();
+                    $remove.toggle(Boolean(value) && editable);
+                    $upload.toggle(editable);
+                    if (!value) { return; }
+                    $preview.append(getImageAnswerTag(value));
+                };
+
+                var onUploaded = function (err, data) {
+                    $(status).text('');
+                    if (err) { return; }
+                    var parsed = Hash.parsePadUrl(data.url);
+                    var secret = Hash.getSecrets('file', parsed.hash);
+                    value = {
+                        src: Hash.getBlobPathFromHex(secret.channel),
+                        key: Hash.encodeBase64(secret.keys.cryptKey),
+                        name: data.name,
+                        type: data.fileType
+                    };
+                    render();
+                    evOnChange.fire();
+                };
+
+                $upload.click(function () { $input.click(); });
+                var onFile = function (file) {
+                    if (!file || !common) { return; }
+                    if (!/^image\//.test(file.type)) {
+                        return void UI.warn(Messages.form_image_typeError);
+                    }
+                    $(status).text(Messages.upload_pending);
+                    uploadImageAnswer(file, onUploaded);
+                };
+                $input.on('change', function () {
+                    var file = input.files && input.files[0];
+                    $input.val('');
+                    onFile(file);
+                });
+                $remove.click(function () {
+                    value = undefined;
+                    render();
+                    evOnChange.fire();
+                });
+                render();
+
+                return {
+                    tag: tag,
+                    isEmpty: function () { return !value; },
+                    getValue: function () { return value; },
+                    setValue: function (val) {
+                        value = isImageAnswer(val) ? val : undefined;
+                        render();
+                    },
+                    setEditable: function (state) {
+                        editable = state;
+                        render();
+                    },
+                    edit: function (cb) {
+                        return editDateOptions(cb);
+                    },
+                    reset: function () {
+                        value = undefined;
+                        render();
+                    }
+                };
+            },
+            printResults: function (answers, uid) { // results image
+                var results = [];
+                var empty = 0;
+                getSortedKeys(answers).forEach(function (author) {
+                    var answer = answers[author].msg[uid];
+                    if (!isImageAnswer(answer)) { return empty++; }
+                    results.push(h('div.cp-charts-row', h('span.cp-value', getImageAnswerTag(answer))));
+                });
+                results.unshift(getEmpty(empty));
+                return h('div.cp-form-results-contained', h('div.cp-charts.cp-text-table.cp-form-results-images', results));
+            },
+            exportCSV: function (answer, form) {
+                if (answer === false) { return [form.q || Messages.form_default]; }
+                if (!isImageAnswer(answer)) { return ['']; }
+                // Export a link to the file app so that the image can be opened and downloaded
+                var hash = Hash.getFileHashFromKeys({
+                    version: 1,
+                    channel: answer.src.split('/').pop(),
+                    keys: { fileKeyStr: answer.key }
+                });
+                var origin = (APP.common && APP.common.getMetadataMgr().getPrivateData().origin) || '';
+                return [origin + '/file/#' + hash];
+            },
+            icon: Icons.get('form-image')
+        },
         checkbox: {
             compatible: ['radio', 'checkbox', 'sort'],
             defaultOpts: {
@@ -2917,7 +3094,31 @@ define([
         }, 0);
     };
 
+    // Image answers uploaded by guests aren't pinned by anyone:
+    // registered editors pin them so that they're not deleted by the server
+    var pinImageAnswers = function (content, answers) {
+        if (!APP.isEditor || !APP.common.isLoggedIn()) { return; }
+        var imageQuestions = Object.keys(content.form || {}).filter(function (uid) {
+            return content.form[uid] && content.form[uid].type === 'image';
+        });
+        if (!imageQuestions.length) { return; }
+        var channels = [];
+        Util.values(parseAnswers(answers)).forEach(function (obj) {
+            var msg = (obj && obj.msg) || {};
+            imageQuestions.forEach(function (uid) {
+                var answer = msg[uid];
+                if (!isImageAnswer(answer)) { return; }
+                var channel = answer.src.split('/').pop();
+                if (!/^[0-9a-f]{48}$/.test(channel)) { return; }
+                channels.push(channel);
+            });
+        });
+        if (!channels.length) { return; }
+        APP.common.getSframeChannel().event('EV_FORM_PIN_IMAGES', Util.deduplicateString(channels));
+    };
+
     var renderResults = APP.renderResults = function (content, answers, showUser) {
+        pinImageAnswers(content, answers);
         var $container = $('div.cp-form-creator-results').empty().css('display', '');
 
         var framework = APP.framework;
