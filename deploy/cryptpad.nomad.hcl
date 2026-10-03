@@ -1,7 +1,7 @@
 variable "image" {
   type        = string
   description = "CryptPad image built from the form-image-answers branch"
-  default     = "cryptpad-forms:47fc6d0"
+  default     = "cryptpad-forms:e647263"
 }
 
 variable "main_domain" {
