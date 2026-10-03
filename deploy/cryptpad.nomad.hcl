@@ -106,6 +106,14 @@ module.exports = {
     // Add your public signing key here (Settings > Account) to access the admin panel
     adminKeys: [],
     installMethod: 'docker',
+    // Keep server state on the cryptpad-data volume. Without these, the
+    // defaults (./pins, ./tasks, ./blobstage) live in the container and
+    // are lost on every redeploy. Same values as config.example.js.
+    // decreePath is left at its default (./data/) where the existing
+    // admin settings already are.
+    pinPath: './data/pins',
+    taskPath: './data/tasks',
+    blobStagingPath: './data/blobstage',
 };
 EOT
       }
